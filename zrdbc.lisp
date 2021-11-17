@@ -13,7 +13,7 @@
    (pri* () :required T))
   (let ((results (gensym "results-")))
     `(progn
-       (and ',in*
+       (and ,(not (null in*))
             (or ,@(loop :for in :in (reverse in*) :collect `(call-method ,in))
                 (error "Precondition error")))
        (let ((,results (multiple-value-list (call-method ,(car pri*) ,(cdr pri*)))))
