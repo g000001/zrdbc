@@ -7,19 +7,26 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
 
+(defvar *block-name* '#:top-level)
+
 (define-method-combination dbc ()
   ((in* (:in))
    (out* (:out))
    (pri* () :required T))
-  (let ((results (gensym "results-")))
+  (let ((results (gensym "results-"))
+        (gf-name (generic-function-name (method-generic-function (car pri*)))))
     `(progn
        (and ,(not (null in*))
             (or ,@(loop :for in :in (reverse in*) :collect `(call-method ,in))
-                (error "Precondition error")))
+                (error "Precondition error.~%Client: ~S~%Supplier: ~S"
+                       ',gf-name
+                       *block-name*)))
        (let ((,results (multiple-value-list (call-method ,(car pri*) ,(cdr pri*)))))
          (declare (dynamic-extent ,results))
          (or (and ,@(loop :for out :in (reverse out*) :collect `(apply (call-method ,out) ,results)))
-             (error "Postcondition error"))
+             (error "Postcondition error.~%Supplier: ~S~%Client: ~S" 
+                    ',gf-name
+                    *block-name*))
          (values-list ,results)))))
 
 
@@ -95,6 +102,33 @@ Error: Error during finalization of class #<dbc-class dbc-object 427D3A2B23>: Ca
 
 (defmethod shared-initialize :after ((obj dbc-object) slots &key)
   (invariant obj))
+
+
+(defun get-block-name (env)
+  #+sbcl (caar (sb-c::lexenv-blocks env))
+  #+lispworks (caar (compiler::compiler-environment-benv env)))
+
+
+(defmacro def (name (&rest args) 
+                    (&rest values)
+                    (&body in)
+                    (&body out)
+                    &body main)
+  (check-type (car in) (eql :in))
+  (check-type (car values) (eql values))
+  (check-type (car out) (eql :out))
+  (let ((in (cdr in))
+        (out (cdr out))
+        (result-vars (cdr values)))
+    `(progn
+       (defgeneric ,name (,@args)
+         (:method-combination dbc))
+       ,(and in `(defmethod ,name :in (,@args) ,@in))
+       (defmethod ,name (,@args) ,@main)
+       ,(and out `(defmethod ,name :out (,@args) (lambda (,@result-vars) ,@out)))
+       (define-compiler-macro ,name (&rest args &environment env)
+         `(let ((*block-name* ',(get-block-name env)))
+            (funcall #',',name ,@args))))))
 
 
 ;;; *EOF*
