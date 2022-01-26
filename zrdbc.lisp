@@ -14,7 +14,7 @@
    (out* (:out))
    (pri* () :required T))
   (let ((results (gensym "results-"))
-        (gf-name (generic-function-name (method-generic-function (car pri*)))))
+        (gf-name (and pri* (generic-function-name (method-generic-function (car pri*))))))
     `(progn
        (and ,(not (null in*))
             (or ,@(loop :for in :in (reverse in*) :collect `(call-method ,in))
