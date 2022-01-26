@@ -5,7 +5,7 @@
 (defpackage "https://github.com/g000001/zrdbc"
   (:nicknames zrdbc)
   (:use)
-  (:export dbc dbc-class dbc-object invariant)
+  (:export dbc dbc-class dbc-object invariant def)
   ;; syntax
   (:export zrdbc-syntax))
 
